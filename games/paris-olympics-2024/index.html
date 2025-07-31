@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Olympic Rings Rhythm - Paris 2024</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #FF69B4, #FFD700);
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            border: 4px solid #FFD700;
+            border-radius: 8px;
+            background: #000;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        
+        .game-ui {
+            position: absolute;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        #score {
+            top: 20px;
+            left: 20px;
+        }
+        
+        #lives {
+            top: 20px;
+            right: 20px;
+        }
+        
+        #highScore {
+            top: 60px;
+            left: 20px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+    <div id="score" class="game-ui">Score: 0</div>
+    <div id="lives" class="game-ui">Lives: 3</div>
+    <div id="highScore" class="game-ui">High Score: 0</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Enhanced compatibility for older browsers/TV devices
+        if (!ctx) {
+            document.body.innerHTML = '<div style="color:white;text-align:center;padding-top:200px;font-size:24px;">Canvas not supported</div>';
+        }
+        
+        // Performance optimization: Pre-cache gradients and patterns
+        let basketGradient, backgroundPattern;
+        
+        let gameState = 'start', score = 0, lives = 3, combo = 0, level = 1, ringSpeed = 2, spawnRate = 0.02;
+        // Safe localStorage access for TV devices
+        let highScore = 0;
+        try { 
+            highScore = localStorage.getItem('olympicRingsHighScore') || 0; 
+        } catch(e) { 
+            console.warn('localStorage not available'); 
+        }
+        let basket = { x: 640, y: 600, width: 120, height: 40, speed: 8 };
+        let rings = [], sequence = [], currentSequenceIndex = 0, particles = [];
+        
+        // Object pools for memory optimization
+        const MAX_PARTICLES = 50, MAX_RINGS = 30;
+        let particlePool = [], ringPool = [];
+        
+        const RING_COLORS = { blue: '#0081C8', yellow: '#FCB131', black: '#000000', green: '#00A651', red: '#EE334E' };
+        const COLOR_NAMES = Object.keys(RING_COLORS);
+        
+        // Initialize object pools and cached graphics
+        function initOptimizations() {
+            basketGradient = ctx.createLinearGradient(0, basket.y, 0, basket.y + basket.height);
+            basketGradient.addColorStop(0, '#FFD700');
+            basketGradient.addColorStop(1, '#FFA500');
+            
+            // Pre-create particle pool
+            for (let i = 0; i < MAX_PARTICLES; i++) {
+                particlePool.push({ x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 30, color: '#FFF', active: false });
+            }
+        }
+        
+        function generateSequence() {
+            sequence = [];
+            const length = Math.min(3 + Math.floor(level / 2), 7);
+            for (let i = 0; i < length; i++) sequence.push(COLOR_NAMES[Math.floor(Math.random() * COLOR_NAMES.length)]);
+            currentSequenceIndex = 0;
+        }
+        
+        function createRing(x, y, color) {
+            return { x, y, color, radius: 25, speed: ringSpeed + Math.random() * 2, collected: false };
+        }
+        
+        // Optimized particle creation using object pool
+        function createParticle(x, y, color) {
+            for (let i = 0; i < particlePool.length; i++) {
+                const p = particlePool[i];
+                if (!p.active) {
+                    p.x = x; p.y = y; p.color = color; p.life = 30; p.active = true;
+                    p.vx = (Math.random() - 0.5) * 8; p.vy = (Math.random() - 0.5) * 8 - 2;
+                    return p;
+                }
+            }
+            return null; // Pool exhausted, skip particle
+        }
+        
+        function drawRing(x, y, color, radius = 25) {
+            ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, radius - 3, 0, Math.PI * 2); ctx.stroke();
+        }
+        
+        // Optimized basket drawing with cached gradient
+        function drawBasket() {
+            ctx.fillStyle = basketGradient; 
+            ctx.fillRect(basket.x - basket.width/2, basket.y, basket.width, basket.height);
+            ctx.strokeStyle = '#FF8C00'; ctx.lineWidth = 3; 
+            ctx.strokeRect(basket.x - basket.width/2, basket.y, basket.width, basket.height);
+        }
+        
+        function drawSequence() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(450, 20, 380, 80);
+            ctx.fillStyle = 'white'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Target Sequence:', 640, 45);
+            for (let i = 0; i < sequence.length; i++) {
+                const x = 480 + i * 60, y = 75;
+                ctx.globalAlpha = i < currentSequenceIndex ? 0.3 : 1.0;
+                drawRing(x, y, RING_COLORS[sequence[i]], 20); ctx.globalAlpha = 1.0;
+                if (i === currentSequenceIndex) {
+                    ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.setLineDash([5, 5]);
+                    ctx.strokeRect(x - 25, y - 25, 50, 50); ctx.setLineDash([]);
+                }
+            }
+        }
+        
+        // Optimized update with memory limits and efficient collision detection
+        function update() {
+            if (gameState !== 'playing') return;
+            
+            // Limit ring spawning to prevent memory issues
+            if (Math.random() < spawnRate && rings.length < MAX_RINGS) {
+                rings.push(createRing(Math.random() * (canvas.width - 100) + 50, -30, COLOR_NAMES[Math.floor(Math.random() * COLOR_NAMES.length)]));
+            }
+            
+            // Optimized ring processing - remove collected rings immediately
+            for (let i = rings.length - 1; i >= 0; i--) {
+                const ring = rings[i];
+                ring.y += ring.speed;
+                
+                // Remove rings that fell off screen
+                if (ring.y > canvas.height + 50) {
+                    rings.splice(i, 1);
+                    continue;
+                }
+                
+                // Collision detection
+                if (!ring.collected && ring.y > basket.y && ring.y < basket.y + basket.height && 
+                    ring.x > basket.x - basket.width/2 && ring.x < basket.x + basket.width/2) {
+                    
+                    rings.splice(i, 1); // Remove immediately
+                    
+                    if (ring.color === sequence[currentSequenceIndex]) {
+                        currentSequenceIndex++; combo++; score += 100 * combo;
+                        for (let j = 0; j < 8; j++) createParticle(ring.x, ring.y, RING_COLORS[ring.color]);
+                        if (currentSequenceIndex >= sequence.length) {
+                            score += 500 * level; level++; ringSpeed = Math.min(ringSpeed + 0.5, 8);
+                            spawnRate = Math.min(spawnRate + 0.005, 0.05); generateSequence();
+                        }
+                    } else {
+                        lives--; combo = 0; currentSequenceIndex = 0;
+                        for (let j = 0; j < 12; j++) createParticle(ring.x, ring.y, '#FF0000');
+                        if (lives <= 0) {
+                            gameState = 'gameOver';
+                            if (score > highScore) { 
+                                highScore = score; 
+                                try { localStorage.setItem('olympicRingsHighScore', highScore); } catch(e) {}
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Optimized particle update using object pool
+            particlePool.forEach(particle => {
+                if (particle.active) {
+                    particle.x += particle.vx; particle.y += particle.vy; particle.vy += 0.3; particle.life--;
+                    if (particle.life <= 0) particle.active = false;
+                }
+            });
+        }
+        
+        // Optimized render with reduced canvas state changes
+        function render() {
+            ctx.fillStyle = '#87CEEB'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Simplified background pattern for better performance
+            ctx.fillStyle = 'rgba(255, 105, 180, 0.05)';
+            for (let i = 0; i < canvas.width; i += 120) {
+                for (let j = 0; j < canvas.height; j += 120) {
+                    ctx.fillRect(i, j, 60, 60);
+                }
+            }
+            
+            if (gameState === 'start') drawStartScreen();
+            else if (gameState === 'playing') {
+                drawSequence(); 
+                drawBasket();
+                
+                // Batch ring rendering
+                rings.forEach(ring => drawRing(ring.x, ring.y, RING_COLORS[ring.color]));
+                
+                // Optimized particle rendering
+                particlePool.forEach(particle => {
+                    if (particle.active) {
+                        ctx.globalAlpha = particle.life / particle.maxLife; 
+                        ctx.fillStyle = particle.color;
+                        ctx.fillRect(particle.x - 2, particle.y - 2, 4, 4);
+                    }
+                });
+                ctx.globalAlpha = 1.0;
+                
+                // Level display
+                ctx.fillStyle = 'white'; ctx.font = 'bold 28px sans-serif'; ctx.textAlign = 'center';
+                ctx.fillText(`Level ${level}`, canvas.width - 100, 50);
+            } else if (gameState === 'gameOver') drawGameOverScreen();
+            updateUI();
+        }
+        
+        function drawStartScreen() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#FFD700'; ctx.font = 'bold 64px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('OLYMPIC RINGS', canvas.width/2, 200); ctx.fillText('RHYTHM', canvas.width/2, 280);
+            ctx.fillStyle = '#FF69B4'; ctx.font = 'bold 36px sans-serif'; ctx.fillText('Paris 2024', canvas.width/2, 330);
+            const colors = ['blue', 'yellow', 'black', 'green', 'red'];
+            for (let i = 0; i < 5; i++) drawRing(500 + i * 70, 400, RING_COLORS[colors[i]], 30);
+            ctx.fillStyle = 'white'; ctx.font = 'bold 28px sans-serif';
+            ctx.fillText('Catch rings in the correct sequence!', canvas.width/2, 500);
+            ctx.fillText('Left/Right arrows to move', canvas.width/2, 540);
+            ctx.fillText('Press ENTER to start', canvas.width/2, 580);
+            ctx.font = 'bold 24px sans-serif'; ctx.fillText(`High Score: ${highScore}`, canvas.width/2, 630);
+        }
+        
+        function drawGameOverScreen() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#FF69B4'; ctx.font = 'bold 48px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('GAME OVER', canvas.width/2, 250);
+            ctx.fillStyle = 'white'; ctx.font = 'bold 32px sans-serif';
+            ctx.fillText(`Final Score: ${score}`, canvas.width/2, 320);
+            ctx.fillText(`Level Reached: ${level}`, canvas.width/2, 370);
+            if (score === highScore) { ctx.fillStyle = '#FFD700'; ctx.fillText('NEW HIGH SCORE!', canvas.width/2, 420); }
+            ctx.fillStyle = 'white'; ctx.font = 'bold 28px sans-serif'; ctx.fillText('Press ENTER to play again', canvas.width/2, 500);
+        }
+        
+        function updateUI() {
+            document.getElementById('score').textContent = `Score: ${score}`;
+            document.getElementById('lives').textContent = `Lives: ${lives}`;
+            document.getElementById('highScore').textContent = `High Score: ${highScore}`;
+        }
+        
+        function resetGame() {
+            score = 0; lives = 3; combo = 0; level = 1; ringSpeed = 2; spawnRate = 0.02;
+            rings = []; basket.x = 640; 
+            // Reset particle pool
+            particlePool.forEach(p => p.active = false);
+            generateSequence(); gameState = 'playing';
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            if (gameState === 'playing') {
+                if (e.keyCode === 37 && basket.x > basket.width/2) basket.x -= basket.speed;
+                else if (e.keyCode === 39 && basket.x < canvas.width - basket.width/2) basket.x += basket.speed;
+            }
+            if (e.keyCode === 13 && (gameState === 'start' || gameState === 'gameOver')) resetGame();
+        });
+        
+        // Frame rate limiting for consistent performance on TV devices
+        let lastTime = 0;
+        const targetFPS = 60;
+        const frameInterval = 1000 / targetFPS;
+        
+        function gameLoop(currentTime) { 
+            if (currentTime - lastTime >= frameInterval) {
+                update(); 
+                render(); 
+                lastTime = currentTime;
+            }
+            requestAnimationFrame(gameLoop); 
+        }
+        
+        // Initialize optimizations and start game
+        initOptimizations(); 
+        generateSequence(); 
+        updateUI(); 
+        gameLoop(0);
+    </script>
+</body>
+</html>
