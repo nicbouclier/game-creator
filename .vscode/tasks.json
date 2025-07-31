@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Start Claude Code",
+        "type": "shell",
+        "command": "claude",
+        "presentation": {
+          "echo": true,
+          "focus": true,
+          "panel": "dedicated"
+        },
+        "problemMatcher": []
+      }
+    ]
+  }

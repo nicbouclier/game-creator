@@ -1,0 +1,10 @@
+Server started with options: respect-robots-txt
+Failed to scan existing downloads: Error: ENOENT: no such file or directory, scandir '/Users/nbeuch701@cable.comcast.com/Downloads/mcp-fetch'
+    at async Object.readdir (node:internal/fs/promises:955:18)
+    at async scanAndRegisterExistingFiles (file:///Users/nbeuch701@cable.comcast.com/.npm/_npx/e5ec6e1360b435a5/node_modules/@kazuph/mcp-fetch/dist/index.js:40:26)
+    at async runServer (file:///Users/nbeuch701@cable.comcast.com/.npm/_npx/e5ec6e1360b435a5/node_modules/@kazuph/mcp-fetch/dist/index.js:748:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'scandir',
+  path: '/Users/nbeuch701@cable.comcast.com/Downloads/mcp-fetch'
+}
