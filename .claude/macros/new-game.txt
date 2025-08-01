@@ -1,1 +1,1 @@
-content-curator → game-designer → html-coder → playtester → remote-ux-auditor → performance-optimizer
+content-curator → visual-designer → game-designer → asset-retriever → prototype-builder → playtester → performance-optimizer → deployer

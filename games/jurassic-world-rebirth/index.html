@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fossil Excavation Grid - Jurassic World Rebirth</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+        }
+
+        body {
+            background-color: #0F380F;
+            font-family: "Courier New", monospace;
+            font-weight: bold;
+            text-rendering: pixelated;
+            -webkit-font-smoothing: none;
+            color: #FFFFFF;
+            overflow: hidden;
+        }
+
+        .game-container {
+            width: 1280px;
+            height: 720px;
+            margin: 0 auto;
+            background: linear-gradient(180deg, #8BAC0F 0%, #306230 100%);
+            position: relative;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 32px;
+            color: #FFD700;
+            text-shadow: 3px 3px 0px #000000;
+            padding: 20px 0;
+            letter-spacing: 3px;
+        }
+
+        .game-area {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            padding: 20px;
+        }
+
+        .grid-container {
+            background-color: #8B4513;
+            border: 6px solid #000000;
+            border-top: 6px solid #FFFFFF;
+            border-left: 6px solid #FFFFFF;
+            padding: 20px;
+            border-radius: 0;
+        }
+
+        .excavation-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(6, 60px);
+            gap: 4px;
+            background-color: #654321;
+            padding: 8px;
+            border: 3px solid #000000;
+        }
+
+        .grid-cell {
+            width: 60px;
+            height: 60px;
+            background-color: #8B4513;
+            border: 2px solid #654321;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .grid-cell.cursor {
+            border: 4px solid #FFD700;
+            box-shadow: 0 0 8px #FFD700;
+        }
+
+        .grid-cell.dug {
+            background-color: #F4A460;
+            border-color: #D2691E;
+        }
+
+        .grid-cell.bone {
+            background-color: #FFFFFF;
+            color: #000000;
+            border-color: #FFD700;
+        }
+
+        .grid-cell.fossil {
+            background-color: #FFD700;
+            color: #000000;
+            border-color: #FFFFFF;
+        }
+
+        .info-panel {
+            background-color: #306230;
+            border: 6px solid #000000;
+            border-top: 6px solid #FFFFFF;
+            border-left: 6px solid #FFFFFF;
+            padding: 30px;
+            width: 350px;
+            font-size: 24px;
+            line-height: 1.8;
+        }
+
+        .score-display {
+            color: #FFD700;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .level-display {
+            color: #9BBD0F;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .instructions {
+            font-size: 20px;
+            color: #F4A460;
+            margin-top: 30px;
+            line-height: 1.6;
+        }
+
+        .controls {
+            font-size: 18px;
+            color: #8BAC0F;
+            margin-top: 20px;
+            border-top: 2px solid #654321;
+            padding-top: 15px;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #000000;
+            border: 6px solid #FFD700;
+            padding: 40px;
+            text-align: center;
+            font-size: 32px;
+            color: #FFFFFF;
+            display: none;
+        }
+
+        .restart-btn {
+            background-color: #8BAC0F;
+            border: 4px solid #000000;
+            border-top: 4px solid #FFFFFF;
+            border-left: 4px solid #FFFFFF;
+            color: #000000;
+            font-size: 24px;
+            padding: 15px 30px;
+            margin-top: 20px;
+            cursor: pointer;
+            font-family: "Courier New", monospace;
+            font-weight: bold;
+        }
+
+        @media (max-width: 1280px) {
+            .game-container {
+                transform: scale(0.8);
+                transform-origin: top left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="title">FOSSIL EXCAVATION GRID</div>
+        
+        <div class="game-area">
+            <div class="grid-container">
+                <div class="excavation-grid" id="excavationGrid"></div>
+            </div>
+            
+            <div class="info-panel">
+                <div class="score-display">SCORE: <span id="score">0</span></div>
+                <div class="level-display">LEVEL: <span id="level">1</span></div>
+                <div class="level-display">FOSSILS: <span id="fossils">0</span>/3</div>
+                
+                <div class="instructions">
+                    Navigate the dig site to find hidden dinosaur fossils. Use bone fragment clues to locate complete skeletons safely.
+                </div>
+                
+                <div class="controls">
+                    ▲▼◄► MOVE CURSOR<br>
+                    ENTER DIG SELECTED SPOT<br><br>
+                    Numbers show nearby bone fragments. Find all fossils to advance!
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-over" id="gameOver">
+            <div>EXCAVATION COMPLETE!</div>
+            <div style="font-size: 24px; margin: 20px 0;">Final Score: <span id="finalScore">0</span></div>
+            <button class="restart-btn" onclick="startNewGame()">NEW EXCAVATION</button>
+        </div>
+    </div>
+
+    <script>
+        class FossilExcavationGame {
+            constructor() {
+                this.gridSize = { width: 8, height: 6 };
+                this.grid = [];
+                this.cursorPos = { x: 0, y: 0 };
+                this.score = 0;
+                this.level = 1;
+                this.fossilsFound = 0;
+                this.fossilsNeeded = 3;
+                this.gameState = 'playing';
+                this.dug = new Set();
+                this.fossils = [];
+                this.clues = [];
+                
+                this.initializeGrid();
+                this.placeFossils();
+                this.calculateClues();
+                this.render();
+                this.bindEvents();
+            }
+            
+            initializeGrid() {
+                this.grid = [];
+                for (let y = 0; y < this.gridSize.height; y++) {
+                    this.grid[y] = [];
+                    for (let x = 0; x < this.gridSize.width; x++) {
+                        this.grid[y][x] = { type: 'dirt', dug: false, clue: 0 };
+                    }
+                }
+            }
+            
+            placeFossils() {
+                this.fossils = [];
+                const positions = [];
+                
+                while (this.fossils.length < this.fossilsNeeded) {
+                    const x = Math.floor(Math.random() * this.gridSize.width);
+                    const y = Math.floor(Math.random() * this.gridSize.height);
+                    const key = `${x},${y}`;
+                    
+                    if (!positions.includes(key)) {
+                        positions.push(key);
+                        this.fossils.push({ x, y });
+                        this.grid[y][x].type = 'fossil';
+                    }
+                }
+            }
+            
+            calculateClues() {
+                for (let y = 0; y < this.gridSize.height; y++) {
+                    for (let x = 0; x < this.gridSize.width; x++) {
+                        if (this.grid[y][x].type !== 'fossil') {
+                            let count = 0;
+                            for (let dy = -1; dy <= 1; dy++) {
+                                for (let dx = -1; dx <= 1; dx++) {
+                                    const nx = x + dx;
+                                    const ny = y + dy;
+                                    if (nx >= 0 && nx < this.gridSize.width && ny >= 0 && ny < this.gridSize.height) {
+                                        if (this.grid[ny][nx].type === 'fossil') {
+                                            count++;
+                                        }
+                                    }
+                                }
+                            }
+                            this.grid[y][x].clue = count;
+                        }
+                    }
+                }
+            }
+            
+            render() {
+                const gridElement = document.getElementById('excavationGrid');
+                gridElement.innerHTML = '';
+                
+                for (let y = 0; y < this.gridSize.height; y++) {
+                    for (let x = 0; x < this.gridSize.width; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'grid-cell';
+                        cell.dataset.x = x;
+                        cell.dataset.y = y;
+                        
+                        if (x === this.cursorPos.x && y === this.cursorPos.y) {
+                            cell.classList.add('cursor');
+                        }
+                        
+                        const gridCell = this.grid[y][x];
+                        
+                        if (gridCell.dug) {
+                            cell.classList.add('dug');
+                            
+                            if (gridCell.type === 'fossil') {
+                                cell.classList.add('fossil');
+                                cell.textContent = '🦴';
+                            } else if (gridCell.clue > 0) {
+                                cell.classList.add('bone');
+                                cell.textContent = gridCell.clue;
+                            }
+                        }
+                        
+                        gridElement.appendChild(cell);
+                    }
+                }
+                
+                document.getElementById('score').textContent = this.score;
+                document.getElementById('level').textContent = this.level;
+                document.getElementById('fossils').textContent = this.fossilsFound;
+            }
+            
+            moveCursor(dx, dy) {
+                if (this.gameState !== 'playing') return;
+                
+                const newX = Math.max(0, Math.min(this.gridSize.width - 1, this.cursorPos.x + dx));
+                const newY = Math.max(0, Math.min(this.gridSize.height - 1, this.cursorPos.y + dy));
+                
+                this.cursorPos.x = newX;
+                this.cursorPos.y = newY;
+                this.render();
+            }
+            
+            dig() {
+                if (this.gameState !== 'playing') return;
+                
+                const { x, y } = this.cursorPos;
+                const cell = this.grid[y][x];
+                
+                if (cell.dug) return;
+                
+                cell.dug = true;
+                
+                if (cell.type === 'fossil') {
+                    this.fossilsFound++;
+                    this.score += 100 * this.level;
+                    
+                    if (this.fossilsFound >= this.fossilsNeeded) {
+                        this.levelComplete();
+                    }
+                } else {
+                    this.score += 10;
+                }
+                
+                this.render();
+            }
+            
+            levelComplete() {
+                this.level++;
+                this.fossilsFound = 0;
+                this.fossilsNeeded = Math.min(5, 3 + Math.floor(this.level / 2));
+                this.score += 500;
+                
+                if (this.level > 5) {
+                    this.gameComplete();
+                } else {
+                    this.initializeGrid();
+                    this.placeFossils();
+                    this.calculateClues();
+                    this.cursorPos = { x: 0, y: 0 };
+                    this.render();
+                }
+            }
+            
+            gameComplete() {
+                this.gameState = 'complete';
+                document.getElementById('finalScore').textContent = this.score;
+                document.getElementById('gameOver').style.display = 'block';
+            }
+            
+            bindEvents() {
+                document.addEventListener('keydown', (e) => {
+                    switch(e.keyCode) {
+                        case 37: // Left
+                            e.preventDefault();
+                            this.moveCursor(-1, 0);
+                            break;
+                        case 38: // Up
+                            e.preventDefault();
+                            this.moveCursor(0, -1);
+                            break;
+                        case 39: // Right
+                            e.preventDefault();
+                            this.moveCursor(1, 0);
+                            break;
+                        case 40: // Down
+                            e.preventDefault();
+                            this.moveCursor(0, 1);
+                            break;
+                        case 13: // Enter
+                            e.preventDefault();
+                            this.dig();
+                            break;
+                    }
+                });
+            }
+        }
+        
+        let game;
+        
+        function startNewGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            game = new FossilExcavationGame();
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('load', startNewGame);
+    </script>
+</body>
+</html>
