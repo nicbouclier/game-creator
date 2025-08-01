@@ -1,18 +1,45 @@
-# Game-Creator rules
+# Game-Creator: Master Rules
 
-- Target: Comcast X1 / Xumo TV HTML5, 1280×720 canvas.
-- Controls: D-pad keycodes 37-40 and Enter 13 only.
-- JS max 300 lines; no WebGL.
-- Keep payload <3 MB; inline critical CSS.
-- Use remote-friendly fonts (sans-serif, ≥24 px).
-Save every new game in games/<slug>/ with its own index.html.
+## Target Platform
+- HTML5 games for Comcast X1 / Xumo TV.
+- Layout: 1280 × 720 canvas (centered, with at least 32px safe-area margins).
+- All on-screen text and UI must be readable from a living room distance.
 
-# 8-bit Visual & Gameplay Rules
+## Controls
+- Only use TV remote D-pad (arrow keys: keycodes 37–40) and Enter/OK (keycode 13).
+- Never require analog input, mouse, or rapid button presses.
 
-- All mini-games must use an 8-bit color palette, referencing NES/SNES hex codes for authenticity.
-- All text and UI must use large, pixelated, TV-readable fonts—no smooth or anti-aliased type.
-- UI elements (buttons, backgrounds, icons) must have a blocky, pixel-art look: no gradients, glossy effects, or modern shadows.
-- The overall aesthetic should be inspired by retro consoles (NES, SNES, Sega) but must fit 1280x720 TV display.
-- Controls: Only use the D-pad (arrow keys) and Enter; game mechanics should not require rapid/twitch inputs or precision timing.
-- Game mechanics must be simple, replayable, and inspired by a **wide range** of classic arcade, puzzle, action, or sports games—not just clones of Mario, Tetris, or Snake.
-- Visual identity and palette should take inspiration from the movie/show/event theme, but always remain within the 8-bit/pixel-art style.
+## Code & Asset Limits
+- Main JavaScript file: ≤ 300 lines.
+- All assets (images, sprites, sounds, CSS, etc.): ≤ 3 MB total.
+- Only inline critical CSS and JS in the HTML when possible.
+- No WebGL. Use 2D Canvas or DOM rendering only.
+
+## Visual & Audio Style — 16-bit Standards
+- Visual style must evoke high-quality Sega Mega Drive/SNES games: defined, colorful, animated pixel art (never plain rectangles).
+- Use color palettes sampled from NES/SNES/MD era—list hex codes in specs.
+- All characters, enemies, objects, and backgrounds must be distinct pixel-art sprites (24×24 or 32×32 px recommended).
+- Support multi-frame sprites for characters and objects.
+- UI and menu elements: chunky, pixel-perfect, blocky with no gradients, shadows, or skeuomorphic gloss.
+- Text: Only large, pixelated fonts (≥28px), e.g., “Press Start 2P”, “Pixeloid-Sans”; ensure all text fits TV readability requirements.
+- Where possible, use or adapt open-license pixel art from Kenney.nl or OpenGameArt.org, or provide detailed ASCII/description for new sprites.
+- If audio is included, use chiptune/synth sounds appropriate for 16-bit style.
+
+## Game Design & Mechanics
+- Each game must offer at least two fun, replayable gameplay concepts ranked by theme fit and remote-friendliness.
+- Allowed genres: platformer (Sonic-style), endless runner, grid puzzle, top-down adventure, action maze, turn-based tactics, simple rhythm.
+- Gameplay must work with only D-pad and Enter; design mechanics and challenge for TV/remote pace, not high-speed arcade twitch.
+- Each design must specify core loop, win/loss condition, scoring, and difficulty progression (≤5 levels/phases).
+- Prototype-builder and visual-designer must coordinate on every game to ensure pixel-art assets are available and referenced by name.
+
+## Directory & File Structure
+- Save every new mini-game in `games/<slug>/` with its own `index.html`, JS, CSS, and assets.
+- Always provide a manifest (JSON or Markdown) of used sprites, palettes, and music.
+
+## Deployment
+- After each game is finalized and tested, commit all files, push to the main branch, and provide a public GitHub Pages preview link.
+- Ensure build/deploy steps are repeatable for future automation.
+
+---
+
+**This file should be referenced by all agents at each workflow step.**
