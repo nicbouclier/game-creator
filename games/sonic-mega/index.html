@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sonic Adventure on the Megadrive</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(180deg, #87CEEB 0%, #98FB98 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Press Start 2P', monospace;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 1280px;
+            height: 720px;
+            border: 4px solid #000;
+            background: #000;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #87CEEB 0%, #98FB98 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 32px;
+            left: 32px;
+            color: #FFD700;
+            font-size: 28px;
+            text-shadow: 2px 2px 0px #000;
+            z-index: 10;
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 32px;
+            left: 32px;
+            color: #FFF;
+            font-size: 20px;
+            text-shadow: 2px 2px 0px #000;
+            z-index: 10;
+        }
+        
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #000;
+            color: #FFD700;
+            padding: 40px;
+            border: 4px solid #FFD700;
+            text-align: center;
+            font-size: 32px;
+            display: none;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
+        <div id="ui">
+            <div>RINGS: <span id="rings">0</span></div>
+            <div>SPEED: <span id="speed">WALK</span></div>
+        </div>
+        <div id="instructions">
+            ARROWS: Move • DOWN: Spin Dash • ENTER: Brake • Collect Golden Rings!
+        </div>
+        <div id="gameOver">
+            <div>GAME COMPLETE!</div>
+            <div style="font-size: 24px; margin-top: 20px;">Final Score: <span id="finalScore">0</span></div>
+            <div style="font-size: 20px; margin-top: 20px;">Press ENTER to restart</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const ringsDisplay = document.getElementById('rings');
+        const speedDisplay = document.getElementById('speed');
+        const gameOverScreen = document.getElementById('gameOver');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        
+        let gameState = 'playing', keys = {}, rings = 0, spinDashCharge = 0;
+        
+        const sonic = {x: 100, y: 500, width: 24, height: 24, vx: 0, vy: 0, onGround: false, speedState: 'walk', animFrame: 0, animTimer: 0, facing: 1};
+        const camera = {x: 0, y: 0};
+        
+        const GRAVITY = 0.8, GROUND_FRICTION = 0.85, AIR_RESISTANCE = 0.95;
+        const WALK_ACCEL = 0.3, RUN_ACCEL = 0.5, DASH_ACCEL = 0.8;
+        const MAX_WALK = 3, MAX_RUN = 6, MAX_DASH = 12;
+        const JUMP_BASE = 12, JUMP_BONUS = 3;
+        
+        const platforms = [
+            {x: 0, y: 650, width: 1280, height: 70},
+            {x: 300, y: 550, width: 200, height: 32},
+            {x: 600, y: 450, width: 200, height: 32},
+            {x: 900, y: 350, width: 200, height: 32},
+            {x: 1200, y: 250, width: 200, height: 32},
+            {x: 1500, y: 150, width: 200, height: 32}
+        ];
+        
+        let gameRings = [
+            {x: 250, y: 600}, {x: 400, y: 500}, {x: 550, y: 500},
+            {x: 700, y: 400}, {x: 850, y: 400}, {x: 1000, y: 300},
+            {x: 1150, y: 300}, {x: 1300, y: 200}, {x: 1450, y: 200},
+            {x: 1600, y: 100}
+        ].map((pos, i) => ({x: pos.x, y: pos.y, width: 16, height: 16, collected: false, animFrame: 0, isGoal: i === 9}));
+        
+        document.addEventListener('keydown', e => {
+            keys[e.keyCode] = true;
+            if (gameState === 'gameOver' && e.keyCode === 13) restartGame();
+        });
+        
+        document.addEventListener('keyup', e => {
+            keys[e.keyCode] = false;
+            if (e.keyCode === 40 && spinDashCharge > 0) {
+                sonic.vx += (spinDashCharge / 10) * sonic.facing;
+                spinDashCharge = 0;
+            }
+        });
+        
+        function updateSonic() {
+            if (gameState !== 'playing') return;
+            
+            if (keys[40] && sonic.onGround) {
+                spinDashCharge = Math.min(spinDashCharge + 0.5, 20);
+                sonic.vx *= 0.9;
+                return;
+            }
+            
+            let accel = WALK_ACCEL, maxSpeed = MAX_WALK;
+            
+            if (keys[39]) { sonic.facing = 1; sonic.vx += accel; }
+            if (keys[37]) { sonic.facing = -1; sonic.vx -= accel; }
+            if (keys[13]) sonic.vx *= 0.9;
+            
+            const absSpeed = Math.abs(sonic.vx);
+            if (absSpeed > MAX_RUN) { sonic.speedState = 'dash'; maxSpeed = MAX_DASH; }
+            else if (absSpeed > MAX_WALK) { sonic.speedState = 'run'; maxSpeed = MAX_RUN; accel = RUN_ACCEL; }
+            else sonic.speedState = 'walk';
+            
+            if (Math.abs(sonic.vx) > maxSpeed) sonic.vx = Math.sign(sonic.vx) * maxSpeed;
+            
+            if (keys[38] && sonic.onGround) {
+                sonic.vy = -(JUMP_BASE + (absSpeed / MAX_RUN) * JUMP_BONUS);
+                sonic.onGround = false;
+            }
+            
+            sonic.vy += GRAVITY;
+            sonic.vx *= sonic.onGround ? GROUND_FRICTION : AIR_RESISTANCE;
+            sonic.x += sonic.vx; sonic.y += sonic.vy;
+            
+            sonic.onGround = false;
+            platforms.forEach(p => {
+                if (sonic.x < p.x + p.width && sonic.x + sonic.width > p.x && 
+                    sonic.y < p.y + p.height && sonic.y + sonic.height > p.y) {
+                    if (sonic.vy > 0 && sonic.y < p.y) {
+                        sonic.y = p.y - sonic.height;
+                        sonic.vy = 0;
+                        sonic.onGround = true;
+                    }
+                }
+            });
+            
+            if (sonic.y > canvas.height) {
+                sonic.x = 100; sonic.y = 500; sonic.vx = 0; sonic.vy = 0;
+            }
+            
+            if (++sonic.animTimer > 8) {
+                sonic.animFrame = (sonic.animFrame + 1) % 6;
+                sonic.animTimer = 0;
+            }
+        }
+        
+        function updateCamera() {
+            camera.x = Math.max(0, sonic.x - canvas.width / 3);
+            camera.y = Math.max(0, sonic.y - canvas.height / 2);
+        }
+        
+        function updateRings() {
+            gameRings.forEach(ring => {
+                if (!ring.collected) {
+                    ring.animFrame = (ring.animFrame + 0.2) % 8;
+                    if (sonic.x < ring.x + ring.width && sonic.x + sonic.width > ring.x &&
+                        sonic.y < ring.y + ring.height && sonic.y + sonic.height > ring.y) {
+                        ring.collected = true;
+                        rings++;
+                        if (ring.isGoal) {
+                            gameState = 'gameOver';
+                            gameOverScreen.style.display = 'block';
+                            finalScoreDisplay.textContent = rings * 100;
+                        }
+                    }
+                }
+            });
+        }
+        
+        function drawSonic() {
+            const screenX = sonic.x - camera.x, screenY = sonic.y - camera.y;
+            let color = '#0074D9';
+            if (sonic.speedState === 'run') color = '#0056A3';
+            if (sonic.speedState === 'dash') color = '#003D7A';
+            if (spinDashCharge > 0) color = '#FF4136';
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(screenX, screenY, sonic.width, sonic.height);
+            
+            if (Math.abs(sonic.vx) > 1) {
+                ctx.fillStyle = '#FFF';
+                ctx.fillRect(screenX + Math.sin(sonic.animFrame) * 2, screenY + 2, 4, 4);
+            }
+        }
+        
+        function drawPlatforms() {
+            platforms.forEach(p => {
+                const screenX = p.x - camera.x, screenY = p.y - camera.y;
+                ctx.fillStyle = '#228B22';
+                ctx.fillRect(screenX, screenY, p.width, p.height);
+                ctx.fillStyle = '#32CD32';
+                for (let i = 0; i < p.width; i += 8) {
+                    ctx.fillRect(screenX + i, screenY, 4, 4);
+                }
+            });
+        }
+        
+        function drawRings() {
+            gameRings.forEach(ring => {
+                if (!ring.collected) {
+                    const screenX = ring.x - camera.x, screenY = ring.y - camera.y;
+                    const size = ring.isGoal ? 24 : 16;
+                    const color = ring.isGoal ? '#FF6600' : '#FFD700';
+                    
+                    ctx.save();
+                    ctx.translate(screenX + size/2, screenY + size/2);
+                    ctx.rotate(ring.animFrame * 0.785);
+                    ctx.fillStyle = color;
+                    ctx.fillRect(-size/2, -size/2, size, size);
+                    ctx.fillStyle = '#FFF';
+                    ctx.fillRect(-size/4, -size/4, size/2, size/2);
+                    ctx.restore();
+                }
+            });
+        }
+        
+        function render() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#98FB98');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawPlatforms();
+            drawRings();
+            drawSonic();
+            
+            ringsDisplay.textContent = rings;
+            speedDisplay.textContent = sonic.speedState.toUpperCase();
+        }
+        
+        function gameLoop() {
+            updateSonic();
+            updateCamera();
+            updateRings();
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function restartGame() {
+            gameState = 'playing';
+            rings = 0;
+            sonic.x = 100; sonic.y = 500; sonic.vx = 0; sonic.vy = 0;
+            sonic.speedState = 'walk';
+            spinDashCharge = 0;
+            gameRings.forEach(ring => ring.collected = false);
+            gameOverScreen.style.display = 'none';
+        }
+        
+        gameLoop();
+    </script>
+</body>
+</html>

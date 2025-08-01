@@ -1,0 +1,61 @@
+{
+  "game": {
+    "title": "Sonic Adventure on the Megadrive",
+    "slug": "sonic-mega",
+    "genre": "Momentum-based side-scrolling platformer",
+    "canvas": "1280x720",
+    "controls": ["arrow-keys", "enter"],
+    "description": "A TV remote-friendly Sonic game focusing on momentum-based platforming"
+  },
+  "sprites": {
+    "sonic_placeholder": {
+      "size": "24x24",
+      "color": "#0074D9",
+      "states": ["walk", "run", "dash", "spin"],
+      "animation_frames": 6
+    },
+    "rings": {
+      "size": "16x16", 
+      "color": "#FFD700",
+      "animation_frames": 8,
+      "rotation": true
+    },
+    "goal_ring": {
+      "size": "24x24",
+      "color": "#FF6600",
+      "animation_frames": 8,
+      "rotation": true
+    },
+    "platforms": {
+      "size": "32x32",
+      "color": "#228B22",
+      "texture": "#32CD32"
+    }
+  },
+  "color_palette": {
+    "sonic_blue": "#0074D9",
+    "sonic_run": "#0056A3", 
+    "sonic_dash": "#003D7A",
+    "spin_dash": "#FF4136",
+    "ring_gold": "#FFD700",
+    "goal_orange": "#FF6600",
+    "grass_green": "#228B22",
+    "grass_light": "#32CD32",
+    "sky_blue": "#87CEEB",
+    "ground_green": "#98FB98",
+    "ui_gold": "#FFD700",
+    "text_white": "#FFFFFF"
+  },
+  "mechanics": {
+    "speed_states": ["walk", "run", "dash"],
+    "max_speeds": [3, 6, 12],
+    "spin_dash": "hold_down_release",
+    "momentum_physics": true,
+    "speed_based_jumping": true
+  },
+  "file_structure": {
+    "main": "index.html",
+    "embedded": ["css", "javascript"],
+    "total_size": "<3MB"
+  }
+}
